@@ -16,20 +16,18 @@
 
 use std::net::SocketAddr;
 
+use crate::difficulty_adjuster::DifficultyAdjusterTrait;
 use crate::error::Error;
-use crate::messages::{Request, Response};
+use crate::messages::{Message, Request};
+use crate::server::StratumContext;
 use crate::session::Session;
-use crate::work::tracker::TrackerHandle;
-use bitcoindrpc::BitcoinRpcConfig;
+use authorize::handle_authorize;
+use submit::handle_submit;
+use subscribe::handle_subscribe;
 
 pub mod authorize;
 pub mod submit;
 pub mod subscribe;
-
-use crate::work::notify::NotifyCmd;
-use authorize::handle_authorize;
-use submit::handle_submit;
-use subscribe::handle_subscribe;
 
 /// Handle incoming Stratum messages
 /// This function processes the incoming Stratum messages and returns a response
@@ -39,18 +37,25 @@ use subscribe::handle_subscribe;
 /// Return a vector of responses to be sent back to the client.
 #[allow(dead_code)]
 #[allow(clippy::needless_lifetimes)]
-pub(crate) async fn handle_message<'a>(
+pub(crate) async fn handle_message<'a, D: DifficultyAdjusterTrait>(
     message: Request<'a>,
-    session: &mut Session,
+    session: &mut Session<D>,
     addr: SocketAddr,
-    notify_tx: tokio::sync::mpsc::Sender<NotifyCmd>,
-    tracker_handle: TrackerHandle,
-    bitcoinrpc_config: BitcoinRpcConfig,
-) -> Result<Response<'a>, Error> {
+    ctx: StratumContext,
+) -> Result<Message<'a>, Error> {
     match message.method.as_ref() {
         "mining.subscribe" => handle_subscribe(message, session).await,
-        "mining.authorize" => handle_authorize(message, session, addr, notify_tx).await,
-        "mining.submit" => handle_submit(message, session, tracker_handle, bitcoinrpc_config).await,
+        "mining.authorize" => handle_authorize(message, session, addr, ctx.notify_tx).await,
+        "mining.submit" => {
+            handle_submit(
+                message,
+                session,
+                ctx.tracker_handle,
+                ctx.bitcoinrpc_config,
+                ctx.network,
+            )
+            .await
+        }
         method => Err(Error::InvalidMethod(method.to_string())),
     }
 }
