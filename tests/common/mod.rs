@@ -16,8 +16,7 @@
 
 use bitcoindrpc::BitcoinRpcConfig;
 use p2poolv2_lib::config::{
-    BitcoinConfig, CkPoolConfig, Config, LoggingConfig, MinerConfig, NetworkConfig, StoreConfig,
-    StratumConfig,
+    CkPoolConfig, Config, LoggingConfig, MinerConfig, NetworkConfig, StoreConfig, StratumConfig,
 };
 use p2poolv2_lib::shares::miner_message::MinerWorkbase;
 
@@ -43,9 +42,6 @@ pub fn default_test_config() -> Config {
             rate_limit_window_secs: 1,
             max_requests_per_second: 1,
         },
-        bitcoin: BitcoinConfig {
-            network: bitcoin::Network::Signet,
-        },
         bitcoinrpc: BitcoinRpcConfig {
             url: "http://localhost:8332".to_string(),
             username: "testuser".to_string(),
@@ -59,12 +55,14 @@ pub fn default_test_config() -> Config {
             port: 8881,
         },
         stratum: StratumConfig {
-            host: "127.0.0.1".to_string(),
+            hostname: "127.0.0.1".to_string(),
             port: 3333,
             start_difficulty: 1,
             minimum_difficulty: 1,
+            maximum_difficulty: Some(1000),
             solo_address: Some("tb1q9w4x5z5v5f5g5h5j5k5l5m5n5o5p5q5r5s5t5u".to_string()),
             zmqpubhashblock: "tcp://127.0.0.1:28332".to_string(),
+            network: bitcoin::network::Network::Signet,
         },
         miner: MinerConfig {
             pubkey: "020202020202020202020202020202020202020202020202020202020202020202"

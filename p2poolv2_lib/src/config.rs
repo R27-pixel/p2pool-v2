@@ -17,6 +17,7 @@
 use bitcoin::PublicKey;
 use bitcoindrpc::BitcoinRpcConfig;
 use serde::Deserialize;
+pub use stratum::config::StratumConfig;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct NetworkConfig {
@@ -48,34 +49,8 @@ pub struct CkPoolConfig {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct StratumConfig {
-    pub host: String,
-    pub port: u16,
-    pub start_difficulty: u32,
-    pub minimum_difficulty: u32,
-    pub solo_address: Option<String>,
-    pub zmqpubhashblock: String,
-}
-
-#[derive(Debug, Deserialize, Clone)]
 pub struct MinerConfig {
     pub pubkey: PublicKey,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct BitcoinConfig {
-    #[serde(deserialize_with = "deserialize_network")]
-    pub network: bitcoin::Network,
-}
-
-/// helper function to deserialize the network from the config file, which is provided as a string like Core
-/// Possible values are: main, test, testnet4, signet, regtest
-fn deserialize_network<'de, D>(deserializer: D) -> Result<bitcoin::Network, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let s: String = serde::Deserialize::deserialize(deserializer)?;
-    bitcoin::Network::from_core_arg(&s).map_err(serde::de::Error::custom)
 }
 
 #[derive(Debug, Deserialize, Default, Clone)]
@@ -106,7 +81,6 @@ pub struct Config {
     pub ckpool: CkPoolConfig,
     pub stratum: StratumConfig,
     pub miner: MinerConfig,
-    pub bitcoin: BitcoinConfig,
     pub bitcoinrpc: BitcoinRpcConfig,
     pub logging: LoggingConfig,
 }
@@ -171,8 +145,8 @@ impl Config {
         self
     }
 
-    pub fn with_stratum_host(mut self, stratum_host: String) -> Self {
-        self.stratum.host = stratum_host;
+    pub fn with_stratum_hostname(mut self, stratum_hostname: String) -> Self {
+        self.stratum.hostname = stratum_hostname;
         self
     }
 
@@ -191,13 +165,18 @@ impl Config {
         self
     }
 
-    pub fn with_start_difficulty(mut self, start_difficulty: u32) -> Self {
+    pub fn with_start_difficulty(mut self, start_difficulty: u64) -> Self {
         self.stratum.start_difficulty = start_difficulty;
         self
     }
 
-    pub fn with_minimum_difficulty(mut self, minimum_difficulty: u32) -> Self {
+    pub fn with_minimum_difficulty(mut self, minimum_difficulty: u64) -> Self {
         self.stratum.minimum_difficulty = minimum_difficulty;
+        self
+    }
+
+    pub fn with_maximum_difficulty(mut self, maximum_difficulty: Option<u64>) -> Self {
+        self.stratum.maximum_difficulty = maximum_difficulty;
         self
     }
 
@@ -221,8 +200,8 @@ impl Config {
         self
     }
 
-    pub fn with_bitcoin_network(mut self, bitcoin_network: bitcoin::Network) -> Self {
-        self.bitcoin.network = bitcoin_network;
+    pub fn with_bitcoin_network(mut self, network: bitcoin::Network) -> Self {
+        self.stratum.network = network;
         self
     }
 }
@@ -248,19 +227,20 @@ mod tests {
             .with_store_path("/tmp/store".to_string())
             .with_ckpool_host("ckpool.example.com".to_string())
             .with_ckpool_port(3333)
-            .with_stratum_host("stratum.example.com".to_string())
+            .with_stratum_hostname("stratum.example.com".to_string())
             .with_stratum_port(3333)
             .with_stratum_solo_address("bcrt1qe2qaq0e8qlp425pxytrakala7725dynwhknufr".to_string())
             .with_stratum_zmqpubhashblock("tcp://127.0.0.1:28332".to_string())
             .with_start_difficulty(1)
             .with_minimum_difficulty(1)
+            .with_maximum_difficulty(Some(100))
             .with_miner_pubkey(
                 "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798".to_string(),
             )
             .with_bitcoinrpc_url("http://localhost:8332".to_string())
             .with_bitcoinrpc_username("testuser".to_string())
             .with_bitcoinrpc_password("testpass".to_string())
-            .with_bitcoin_network(bitcoin::Network::Regtest);
+            .with_bitcoin_network(bitcoin::Network::Signet);
 
         assert_eq!(config.network.listen_address, "127.0.0.1:8080");
         assert_eq!(
@@ -271,10 +251,11 @@ mod tests {
         assert_eq!(config.ckpool.host, "ckpool.example.com");
         assert_eq!(config.ckpool.port, 3333);
 
-        assert_eq!(config.stratum.host, "stratum.example.com");
+        assert_eq!(config.stratum.hostname, "stratum.example.com");
         assert_eq!(config.stratum.port, 3333);
         assert_eq!(config.stratum.start_difficulty, 1);
         assert_eq!(config.stratum.minimum_difficulty, 1);
+        assert_eq!(config.stratum.maximum_difficulty, Some(100));
         assert_eq!(
             config.stratum.solo_address,
             Some("bcrt1qe2qaq0e8qlp425pxytrakala7725dynwhknufr".to_string())

@@ -346,7 +346,7 @@ impl Node {
                 libp2p::request_response::Message::Request {
                     request_id: _,
                     request,
-                    channel: channel,
+                    channel,
                 },
         } = request_response_event
         {
